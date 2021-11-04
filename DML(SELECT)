@@ -1,0 +1,10 @@
+-- 2021.11.2(화)자 숙제
+-- 1번 문제: 직급이 'J2'이면서 200만원 이상 받는 직원이거나, 직급이 'J7'인 사원의 사번, 사원명, 직급코드, 급여 정보 조회하기
+SELECT EMP_NO, EMP_NAME, JOB_CODE, SALARY
+FROM EMPLOYEE
+WHERE (JOB_CODE = 'J2' AND SALARY >= 2000000) OR JOB_CODE = 'J7';
+
+-- 2번 문제: 직급이 'J7'이거나 'J2'이면서 급여를 200만원 이상 받는 직원의 사번, 사원명, 직급코드, 급여, 연봉 조회하기
+SELECT EMP_NO, EMP_NAME, JOB_CODE, SALARY, SALARY * 12
+FROM EMPLOYEE
+WHERE JOB_CODE IN ('J7', 'J2') AND SALARY >= 2000000;
