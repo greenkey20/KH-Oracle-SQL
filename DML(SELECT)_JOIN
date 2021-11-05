@@ -1,0 +1,136 @@
+------------ JOIN 종합 실습문제 + 2021.11.4(목) 숙제 ------------
+SELECT * FROM EMPLOYEE;   -- DEPT_CODE    JOB_CODE                              SAL_LEVEL
+SELECT * FROM DEPARTMENT; -- DEPT_ID                LOCATION_ID
+SELECT * FROM JOB;        --              JOB_CODE
+SELECT * FROM LOCATION;   --                        LOCAL_CODE  NATIONAL_CODE
+SELECT * FROM NATIONAL;   --                                    NATIONAL_CODE
+SELECT * FROM SAL_GRADE;  --                                                    SAL_LEVEL
+
+-- 1. 직급이 대리이면서 ASIA 지역에 근무하는 직원들의 사번, 사원명, 직급명, 부서명, 근무지역명, 급여를 조회하시오
+SELECT * FROM EMPLOYEE;   -- DEPT_CODE    JOB_CODE
+SELECT * FROM DEPARTMENT; -- DEPT_ID                LOCATION_ID
+SELECT * FROM JOB;        --              JOB_CODE
+SELECT * FROM LOCATION;   --                        LOCAL_CODE
+
+SELECT EMP_ID 사번, EMP_NAME 사원명, JOB_NAME 직급명, DEPT_TITLE 부서명, LOCAL_NAME 근무지역명, SALARY 급여
+FROM EMPLOYEE E
+LEFT JOIN JOB USING (JOB_CODE) -- JOB_NAME 컬럼을 이용하려면 JOB 테이블 JOIN 필요; EMPLOYEE 테이블과 연결고리 JOB_CODE 있음
+LEFT JOIN DEPARTMENT D ON (E.DEPT_CODE = D.DEPT_ID) -- DEPT_TITLE 컬럼을 이용하려면 DEPARTMENT 테이블 JOIN 필요; EMPLOYEE 테이블과 연결고리 DEPT_CODE/ID 있음
+LEFT JOIN LOCATION L ON (D.LOCATION_ID = L.LOCAL_CODE) -- LOCAL_NAME 컬럼을 이용하려면 LOCATION 테이블 JOIN 필요; DEPARTMENT 테이블과 연결고라 LOCATION_ID/CODE 있음
+WHERE JOB_NAME = '대리' -- 테이블 별명 J. 붙여줘도 됨
+ AND LOCAL_NAME LIKE ('ASIA%'); -- 테이블 별명 L. 붙여줘도 됨
+
+-- 2. 70년대생이면서 여자이고, 성이 전씨인 직원들의 사원명, 주민번호, 부서명, 직급명을 조회하시오
+SELECT EMP_NAME 사원명, EMP_NO 주민번호, DEPT_TITLE 부서명, JOB_NAME 직급명
+FROM EMPLOYEE E, DEPARTMENT D, JOB J
+WHERE E.DEPT_CODE = D.DEPT_ID(+)
+ AND E.JOB_CODE = J.JOB_CODE(+)
+ AND SUBSTR(E.EMP_NO, 1, 1) = 7
+ AND SUBSTR(E.EMP_NO, 8, 1) = 2
+ AND E.EMP_NAME LIKE ('전%');
+
+SELECT EMP_NAME 사원명, EMP_NO 주민번호, DEPT_TITLE 부서명, JOB_NAME 직급명
+FROM EMPLOYEE E
+LEFT JOIN DEPARTMENT D ON (E.DEPT_CODE = D.DEPT_ID) -- EMPLOYEE 테이블과 DEPARTMENT 테이블 JOIN; EMPLOYEE 테이블에서 DEPT_CODE가 NULL인 행이 배제되지 않도록 LEFT OUTER JOIN
+LEFT JOIN JOB J ON (E.JOB_CODE = J.JOB_CODE) -- EMPLOYEE 테이블과 JOB 테이블 LEFT OUTER JOIN
+WHERE E.EMP_NO LIKE ('7%') -- 주민번호 첫번째 자리로 70년대생 찾기
+ AND SUBSTR(E.EMP_NO, 8, 1) = '2' -- 주민번호 뒷부분 첫번째 숫자로 여성 판별
+ AND E.EMP_NAME LIKE ('전%'); -- 사원명 첫글자가 '전'인 경우 찾기
+
+-- 3. 이름에 '형'자가 들어있는 직원들의 사번, 사원명, 직급명을 조회하시오
+SELECT EMP_ID 사번, EMP_NAME 사원명, JOB_NAME 직급명
+FROM EMPLOYEE E, JOB J
+WHERE E.JOB_CODE = J.JOB_CODE(+)
+ AND EMP_NAME LIKE ('%형%');
+
+SELECT EMP_ID 사번, EMP_NAME 사원명, JOB_NAME 직급명
+FROM EMPLOYEE
+LEFT JOIN JOB USING (JOB_CODE) -- '직급명'을 표시하기 위해 EMPLOYEE 테이블과 JOB 테이블 JOIN; 두 테이블의 연결고리 컬럼명이 동일하므로 USING문 사용 -> 각 테이블의 별명 지을 필요 없음
+WHERE EMP_NAME LIKE ('%형%'); -- 조회하고자 하는 사원명에 대한 조건
+
+-- 4. 해외영업팀에 근무하는 직원들의 사원명, 직급명, 부서코드, 부서명을 조회하시오
+SELECT EMP_NAME 사원명, JOB_NAME 직급명, DEPT_CODE 부서코드, DEPT_TITLE 부서명
+FROM EMPLOYEE E
+LEFT JOIN JOB J ON (E.JOB_CODE = J.JOB_CODE) -- '직급명'을 표시하기 위해 EMPLOYEE 테이블과 JOB 테이블 JOIN
+LEFT JOIN DEPARTMENT D ON (E.DEPT_CODE = D.DEPT_ID) -- '부서명'을 표시하기 위해 EMPLOYEE 테이블과 DEPARTMENT 테이블 JOIN
+WHERE D.DEPT_TITLE LIKE ('%해외영업%'); -- 조회하고자 하는 직원들의 근무 부서명에 대한 조건; D. 안 써도 됨
+-- ORDER BY E.DEPT_CODE, E.JOB_CODE;
+
+-- 5. 보너스를 받는 직원들의 사원명, 보너스, 연봉(급여*12), 부서명, 근무지역명을 조회하시오
+SELECT EMP_NAME 사원명, BONUS 보너스, SALARY * 12 연봉, DEPT_TITLE 부서명, LOCAL_NAME 근무지역명
+FROM EMPLOYEE E
+LEFT JOIN DEPARTMENT D ON (E.DEPT_CODE = D.DEPT_ID) -- '부서명'을 표시하기 위해 EMPLOYEE 테이블과 DEPARTMENT 테이블 JOIN
+LEFT JOIN LOCATION L ON (D.LOCATION_ID = L.LOCAL_CODE) -- '근무지역명'을 표시하기 위해 DEPARTMENT 테이블과 LOCATION 테이블 JOIN
+WHERE E.BONUS IS NOT NULL; -- 조회하고자 하는 직원들의 보너스에 대한 조건
+
+-- 6. 부서가 있는 직원들의 사원명, 직급명, 부서명, 근무지역명을 조회하시오
+SELECT EMP_NAME 사원명, JOB_NAME 직급명, DEPT_TITLE 부서명, LOCAL_NAME 근무지역명
+FROM EMPLOYEE E
+LEFT JOIN JOB J ON (E.JOB_CODE = J.JOB_CODE)
+LEFT JOIN DEPARTMENT D ON (E.DEPT_CODE = D.DEPT_ID)
+LEFT JOIN LOCATION L ON (D.LOCATION_ID = L.LOCAL_CODE)
+WHERE E.DEPT_CODE IS NOT NULL; -- 조회하고자 하는 직원들의 부서에 대한 조건
+
+-- 7. '한국' 과 '일본' 에 근무하는 직원들의 사원명, 부서명, 근무지역명, 근무국가명을 조회하시오
+SELECT EMP_NAME 사원명, DEPT_TITLE 부서명, LOCAL_NAME 근무지역명, NATIONAL_NAME 근무국가명
+FROM EMPLOYEE E, DEPARTMENT D, LOCATION L, NATIONAL N
+WHERE E.DEPT_CODE = D.DEPT_ID
+ AND D.LOCATION_ID = L.LOCAL_CODE
+ AND L.NATIONAL_CODE = N.NATIONAL_CODE
+ AND N.NATIONAL_NAME IN ('한국', '일본');
+
+SELECT EMP_NAME 사원명, DEPT_TITLE 부서명, LOCAL_NAME 근무지역명, NATIONAL_NAME 근무국가명
+FROM EMPLOYEE E
+LEFT JOIN DEPARTMENT D ON (E.DEPT_CODE = D.DEPT_ID)
+LEFT JOIN LOCATION L ON (D.LOCATION_ID = L.LOCAL_CODE)
+LEFT JOIN NATIONAL N ON (L.NATIONAL_CODE = N.NATIONAL_CODE)
+WHERE N.NATIONAL_NAME IN ('한국', '일본');
+
+-- 8. 보너스를 받지 않는 직원들 중 직급코드가 J4 또는 J7 인 직원들의 사원명, 직급명, 급여를 조회하시오
+SELECT EMP_NAME 사원명, JOB_NAME 직급명, SALARY 급여
+FROM EMPLOYEE E
+LEFT JOIN JOB J ON (E.JOB_CODE = J.JOB_CODE)
+WHERE BONUS IS NULL
+ AND E.JOB_CODE IN ('J4', 'J7');
+
+-- 9. 사번, 사원명, 직급명, 급여등급, 구분을 조회하는데,
+-- 이 때, 구분에 해당하는 값은 급여등급이 S1, S2 인 경우 '고급', 급여등급이 S3, S4 인 경우 '중급', 급여등급이 S5, S6 인 경우 '초급' 으로 조회되게 하시오
+SELECT DISTINCT SAL_LEVEL FROM EMPLOYEE; -- 조회 결과 = S1,4,5,6
+
+SELECT EMP_ID 사번
+    , EMP_NAME 사원명
+    , JOB_NAME 직급명
+    , S.SAL_LEVEL 급여등급
+    , DECODE(S.SAL_LEVEL, 'S1', '고급', 'S2', '고급',  'S3', '중급', 'S4', '중급', 'S5', '초급',  'S6', '초급')
+FROM EMPLOYEE E
+LEFT JOIN JOB J ON (E.JOB_CODE = J.JOB_CODE)
+JOIN SAL_GRADE S ON (E.SALARY BETWEEN S.MIN_SAL AND S.MAX_SAL); -- 범위로 연결
+
+SELECT EMP_ID 사번
+    , EMP_NAME 사원명
+    , JOB_NAME 직급명
+    , SAL_LEVEL 급여등급
+    , CASE WHEN SAL_LEVEL IN ('S1', 'S2') THEN '고급'
+           WHEN SAL_LEVEL IN ('S3', 'S4') THEN '중급'
+           WHEN SAL_LEVEL IN ('S5', 'S6') THEN '초급'
+        END 구분
+FROM EMPLOYEE
+LEFT JOIN JOB USING (JOB_CODE)
+-- LEFT JOIN SAL_GRADE USING (SAL_LEVEL)
+ORDER BY 구분, JOB_CODE;
+
+-- 10. 사번, 사원명, 주민번호(마스킹), 입사년월, 입사 시점 나이, 직급명, 급여등급 조회, 근무국가명
+SELECT EMP_ID 사번
+    , EMP_NAME 사원명
+    , RPAD(SUBSTR(EMP_NO, 1, 8), 14, '*') 주민번호
+    , TO_CHAR(HIRE_DATE, 'YYYY-MM') 입사년월
+    , EXTRACT(YEAR FROM HIRE_DATE) - CONCAT('19', SUBSTR(EMP_NO, 1, 2)) "입사 시점 나이"
+    , JOB_NAME 직급명
+    , SAL_LEVEL 급여등급
+    , NVL(NATIONAL_NAME, '(미정)') 근무국가명
+FROM EMPLOYEE E
+LEFT JOIN JOB USING (JOB_CODE)
+LEFT JOIN DEPARTMENT D ON (E.DEPT_CODE = D.DEPT_ID)
+LEFT JOIN LOCATION L ON (D.LOCATION_ID = L.LOCAL_CODE)
+LEFT JOIN NATIONAL N ON (L.NATIONAL_CODE = N.NATIONAL_CODE)
+ORDER BY JOB_CODE, "근무국가명" DESC;
