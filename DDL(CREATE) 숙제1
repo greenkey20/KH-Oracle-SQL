@@ -1,0 +1,38 @@
+-- 2021.11.9(화) 숙제
+-- 1번 문제: 부서별 급여 합계가 전체 급여 총 합의 20%보다 많은 부서의 부서명, 부서별 급여 합계 조회
+SELECT DEPT_TITLE, SUM(SALARY)
+FROM EMPLOYEE
+LEFT JOIN DEPARTMENT ON (DEPT_CODE = DEPT_ID)
+GROUP BY DEPT_TITLE
+HAVING SUM(SALARY) > 0.2 * (SELECT SUM(SALARY)
+                            FROM EMPLOYEE); -- 서브쿼리의 결과 = 70096240
+
+-- 2번 문제: 보너스 포함한 연봉이 높은 5명의 사번, 이름, 부서명, 직급, 입사일, 순위 조회
+SELECT *
+FROM (SELECT EMP_ID, EMP_NAME, DEPT_TITLE, JOB_NAME, HIRE_DATE, RANK() OVER(ORDER BY SALARY * (1 + NVL(BONUS, 0)) * 12 DESC) "연봉 순위"
+      FROM EMPLOYEE E, DEPARTMENT D, JOB J
+      WHERE E.DEPT_CODE = D.DEPT_ID(+)
+       AND E.JOB_CODE = J.JOB_CODE(+))
+WHERE "연봉 순위" <= 5;
+
+-- 3번 문제: 보너스가 없고 직급 코드가 J4이거나 J7인 사원의 이름, 직급, 급여 조회
+SELECT EMP_NAME, JOB_CODE, SALARY
+FROM EMPLOYEE
+WHERE BONUS IS NULL
+ AND JOB_CODE IN ('J4', 'J7');
+
+-- 4번 문제: 계열정보를 저장할 카테고리 테이블을 만들기
+CREATE TABLE TB_CATEGORY(
+    NAME VARCHAR2(10),
+    USE_YN CHAR(1) DEFAULT 'Y' NOT NULL -- DEFAULT 기입한 컬럼은 입력 안 하면 DEFAULT로 지정한 값이 입력됨
+);
+
+SELECT * FROM TB_CATEGORY;
+
+-- 5번 문제: 과목 구분을 저장할 테이블 만들기
+CREATE TABLE TB_CLASS_TYPE(
+    NO VARCHAR2(5) PRIMARY KEY,
+    NAME VARCHAR2(10)
+);
+
+SELECT * FROM TB_CLASS_TYPE;
