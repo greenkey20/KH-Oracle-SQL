@@ -33,7 +33,8 @@ INSERT INTO MEMBER VALUES(1, 'user01', 'pass01', '강토미', 'F', '010-1234-567
 INSERT INTO MEMBER VALUES(2, 'user02', 'pass01', '강판다', 'M', '010-2222-2222', NULL);
 INSERT INTO MEMBER VALUES(3, 'user03', 'pass01', '강해피', NULL, NULL, NULL);
 INSERT INTO MEMBER VALUES(4, 'user04', 'pass01', NULL, NULL, NULL, NULL);
-INSERT INTO MEMBER VALUES(5, 'USER04', 'pass01', '강무민', 'M', NULL, NULL);
+INSERT INTO MEMBER VALUES(5, 'USER04', 'pass01', '강무민', 'M', NULL, NULL); -- UNIQUE 제약조건 검사 시 대/소문자 구별 -> 대/소문자가 다르면 다른 ID로 인식됨
+INSERT INTO MEMBER VALUES(6, 'user06', 'pass01', '강스노크메든', 'F', NULL, TO_DATE(160409, 'YYMMDD')); -- 날짜 형식 RR로 바꾸고 싶음..
 
 -- 실습 2. (KH계정)
 -- 방명수 사원의 급여 인상 소식을 전해들은 '노옹철', '전형돈', '정중하', '하동운' 사원들이 자신들도 급여와 보너스를 인상해 달라며 파업을 하고 있다.
@@ -42,32 +43,61 @@ INSERT INTO MEMBER VALUES(5, 'USER04', 'pass01', '강무민', 'M', NULL, NULL);
 SELECT * FROM EMP_SALARY; -- 데이터가 없음
 DROP TABLE EMP_SALARY;
 
-CREATE TABLE EMP_SALARY
+CREATE TABLE EMP_SALARY2
 AS SELECT EMP_ID, EMP_NAME, DEPT_CODE, SALARY, BONUS
    FROM EMPLOYEE;
 
-SELECT * FROM EMP_SALARY;
-SELECT * FROM EMP_SALARY WHERE EMP_NAME IN ('유재식', '노옹철', '전형돈', '정중하', '하동운');
+SELECT * FROM EMP_SALARY2;
+SELECT * FROM EMP_SALARY2 WHERE EMP_NAME IN ('유재식', '노옹철', '전형돈', '정중하', '하동운');
 
-UPDATE EMP_SALARY
+UPDATE EMP_SALARY2
 SET (SALARY, BONUS) = (SELECT SALARY, BONUS
-                       FROM EMP_SALARY
+                       FROM EMP_SALARY2
                        WHERE EMP_NAME = '유재식') -- 서브쿼리의 RESULT SET = (3400000, 0.2)
 WHERE EMP_NAME IN ('노옹철', '전형돈', '정중하', '하동운');
 
 -- 실습 3. (KH계정)
 -- 위와 같은 직원들의 급여 인상 소식이 메스컴으로 통해 퍼져나가 아시아 지역에 근무하는 전 직원들의 급여도 인상해 달라는 시위가 진행되고 있다.
--- 이에 난감한 운영 측은 급여는 인상이 불가 하지만, 보너스는 0.25로 인상을 해주겠다고 시위 대표자인 선동일 사원과 합의를 보게 되었다.
+-- 이에 난감한 운영 측은 급여는 인상이 불가하지만, 보너스는 0.25로 인상을 해주겠다고 시위 대표자인 선동일 사원과 합의를 보게 되었다.
 -- EMP_SALARY 테이블에서 아시아 지역에 근무하는 모든 직원들의 보너스를 0.25로 인상/조정하는 UPDATE 구문을 작성하시오.
-UPDATE EMP_SALARY
+-- 해석1) 기존 보너스가 0.25를 초과한 아시아 지역에 근무하는 직원들의 보너스는 그대로 유지
+CREATE TABLE EMP_SALARY3
+AS SELECT EMP_ID, EMP_NAME, DEPT_CODE, SALARY, BONUS
+   FROM EMPLOYEE;
+   
+SELECT * FROM EMP_SALARY3;
+
+UPDATE EMP_SALARY3
 SET BONUS = 0.25
 WHERE EMP_ID IN (SELECT EMP_ID
                  FROM EMPLOYEE
                  LEFT JOIN DEPARTMENT ON (DEPT_CODE = DEPT_ID)
                  LEFT JOIN LOCATION ON (LOCATION_ID = LOCAL_CODE)
-                 WHERE LOCAL_NAME LIKE ('ASIA%'));
-                  
-SELECT * FROM EMP_SALARY;
+                 WHERE LOCAL_NAME LIKE ('ASIA%')) -- 서브쿼리의 RESULT SET = 16명
+ AND NVL(BONUS, 0) < 0.25;
+
+-- 기존 보너스가 0.25를 초과한 아시아 지역에 근무하는 직원들 조회 RESULT SET = 전지연, 선동일
+SELECT EMP_ID, EMP_NAME
+FROM EMPLOYEE
+LEFT JOIN DEPARTMENT ON (DEPT_CODE = DEPT_ID)
+LEFT JOIN LOCATION ON (LOCATION_ID = LOCAL_CODE)
+WHERE LOCAL_NAME LIKE ('ASIA%')
+ AND NVL(BONUS, 0) > 0.25;
+ 
+-- 해석2) 아시아 지역에 근무하는 직원들의 보너스를 모두 일괄적으로 0.25로 조정/인상
+CREATE TABLE EMP_SALARY4
+AS SELECT EMP_ID, EMP_NAME, DEPT_CODE, SALARY, BONUS
+   FROM EMPLOYEE;
+   
+SELECT * FROM EMP_SALARY4;
+
+UPDATE EMP_SALARY4
+SET BONUS = 0.25
+WHERE EMP_ID IN (SELECT EMP_ID
+                 FROM EMPLOYEE
+                 LEFT JOIN DEPARTMENT ON (DEPT_CODE = DEPT_ID)
+                 LEFT JOIN LOCATION ON (LOCATION_ID = LOCAL_CODE)
+                 WHERE LOCAL_NAME LIKE ('ASIA%')); -- 서브쿼리의 RESULT SET = 18명
 
 -- 아시아 외 지역에서 일하는 직원들의 이름 조회 -> 3명
 SELECT EMP_NAME
@@ -75,3 +105,18 @@ FROM EMPLOYEE
 LEFT JOIN DEPARTMENT ON (DEPT_CODE = DEPT_ID)
 LEFT JOIN LOCATION ON (LOCATION_ID = LOCAL_CODE)
 WHERE LOCAL_NAME NOT LIKE ('ASIA%');
+
+-- 해석3) 기존 보너스가 없는, 아시아 지역 근무 직원들의 보너스는 0.25로 인상/조정하지 않음; 그 외 아시아 지역 근무 직원들 모두의 보너스는 0.25로 조정/인상
+CREATE TABLE EMP_SALARY5
+AS SELECT EMP_ID, EMP_NAME, DEPT_CODE, SALARY, BONUS
+   FROM EMPLOYEE;
+   
+SELECT * FROM EMP_SALARY5;
+
+UPDATE (SELECT EMP_ID, EMP_NAME, DEPT_CODE, SALARY, BONUS
+        FROM EMP_SALARY5
+        LEFT JOIN DEPARTMENT ON (DEPT_CODE = DEPT_ID)
+        LEFT JOIN LOCATION ON (LOCATION_ID = LOCAL_CODE)
+        WHERE LOCAL_NAME LIKE ('ASIA%'))
+SET BONUS = 0.25
+WHERE BONUS IS NOT NULL;
