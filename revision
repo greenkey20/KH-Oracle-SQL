@@ -1,3 +1,227 @@
--- 2021.11.13(토)
+-- 내가 약한 부분 정리 -> 2021.11.15(화)  대비
 
--- 2021.11.14(일)
+-- 2021.11.13(토) 기본문법, 함수
+-- EMPLOYEE 테이블 > EMAIL 컬럼의 (문자열 중) @의 위치 찾아보기
+SELECT EMAIL, INSTR(EMAIL, '@')
+FROM EMPLOYEE;
+
+-- 이메일에서 ID부분만 추출해서 이름, 이메일, ID 조회
+SELECT EMP_NAME, EMAIL, SUBSTR(EMAIL, 1, INSTR(EMAIL, '@') - 1) AS "ID" -- 반환값이 맞다면 함수 안에 함수 사용 가능
+FROM EMPLOYEE;
+
+-- 모든 직원의 주민등록번호 뒤 6자리를 마스킹 처리해서 표현
+SELECT EMP_NAME AS "이름", RPAD(SUBSTR(EMP_NO, 1, 8), 14, '*') AS "주민등록번호"
+FROM EMPLOYEE;
+
+-- 각 직원별로 고용일로부터 오늘까지 근무일수(SYSDATE - HIRE_DATE)를 조회
+-- 근무일수는 소수점 아래의 수는 버림 처리하고, "xx일" 형식으로, 오른쪽 정렬해서 출력
+SELECT EMP_NAME, LPAD(CONCAT(FLOOR(SYSDATE - HIRE_DATE), '일'), 7) AS "근무일수"
+FROM EMPLOYEE;
+
+-- 각 직원별로 고용일~오늘 근무일수, 근무개월수, 근무년수 조회
+SELECT EMP_NAME
+    , LPAD(FLOOR(SYSDATE - HIRE_DATE), 5)||'일' AS 근무일수 -- 가독성을 위해 줄바꿈 + TAB 한 번; 함수 3개 중첩 -> 가장 안쪽 괄호부터 실행되어 그 결과/반환값이 인자로 전달되고..
+    , LPAD(FLOOR(MONTHS_BETWEEN(SYSDATE, HIRE_DATE)), 5)||'개월' AS 근무개월수
+    , LPAD(EXTRACT(YEAR FROM SYSDATE) - EXTRACT(YEAR FROM HIRE_DATE), 3)||'년' AS 근무년수
+FROM EMPLOYEE
+WHERE ENT_YN = 'N';
+
+-- 전체 사원들의 직원명, 입사일, 입사 후 6개월이 흘렀을 때의 날짜 조회
+SELECT EMP_NAME, HIRE_DATE, ADD_MONTHS(HIRE_DATE, 6)
+FROM EMPLOYEE;
+
+-- 영어(AMERICAN)로 언어 변경
+ALTER SESSION SET NLS_LANGUAGE = AMERICAN;
+
+SELECT NEXT_DAY(SYSDATE, 'SUNDAY')
+FROM DUAL; -- 2021.11.13(토) 복습 시 질의 결과 = 21/11/14
+
+-- 한국어(KOREAN)로 언어 변경
+ALTER SESSION SET NLS_LANGUAGE = KOREAN;
+
+SELECT NEXT_DAY(SYSDATE, '목욜')
+FROM DUAL; -- 2021.11.13(토) 복습 시 질의 결과 = 21/11/18
+
+-- 이름, 입사일, 입사한 달의 마지막 날짜, 입사월의 급여 및 보너스(일할 계산) 조회
+SELECT EMP_NAME, HIRE_DATE, LAST_DAY(HIRE_DATE), SALARY, BONUS, CONCAT(TO_CHAR(SALARY * (1 + NVL(BONUS,0)) * (LAST_DAY(HIRE_DATE) - HIRE_DATE) / 30, '999,999,999.0'), '원') "입사월 급여/보너스"
+FROM EMPLOYEE;
+
+SELECT EMP_NAME, BONUS
+    , TO_CHAR((SALARY + SALARY * BONUS) * 12, '999,999,999') "연소득(보너스 NULL)"
+    , TO_CHAR((SALARY + SALARY * NVL(BONUS, 0)) * 12, '999,999,999') AS "연소득(급여+보너스)"    
+FROM EMPLOYEE;
+
+SELECT EMP_NAME, NVL(DEPT_CODE, '없음')
+FROM EMPLOYEE
+ORDER BY DEPT_CODE;
+
+-- 사원명, 부서코드, 부서코드가 있는 경우 '부서 배치 완료' VS 없는 경우 '없음'
+SELECT EMP_NAME, DEPT_CODE, NVL2(DEPT_CODE, '부서 배치 완료', '없음') "부서 배치 여부"
+FROM EMPLOYEE;
+
+-- NULLIF(비교대상1, 비교대상2): 2개의 값이 동일할 경우 NULL을 반환 VS 동일하지 않을 경우 비교대상 1을 반환
+SELECT NULLIF('123', '123')
+FROM DUAL; -- (null)(질의 결과 창 더블클릭해보면 아무 값도 들어있지 않은 빈칸 상태)
+
+SELECT NULLIF('123', '456')
+FROM DUAL; -- 123
+
+-- 사번, 사원명, 주민등록번호로부터 성별 자리 추출
+SELECT EMP_ID, EMP_NAME, DECODE(SUBSTR(EMP_NO, 8, 1), 1, '남', 2, '여', 3, '남', 4, '여') "성별" -- 1 또는 3이 '남', 2 또는 4가 '여' 하고 싶으면 조건 이어서 쓰거나, 연산식(2로 나눈 나머지 등) 사용하거나 등등
+FROM EMPLOYEE
+ORDER BY 성별, 1;
+
+SELECT EMP_ID, EMP_NAME, DECODE(MOD(SUBSTR(EMP_NO, 8, 1), 2), 1, '남', 0, '여') "성별"
+FROM EMPLOYEE;
+
+-- 성별 인원 및 평균급여 조회
+SELECT DECODE(MOD(SUBSTR(EMP_NO, 8, 1), 2), 1, '남', 0, '여') "성별", COUNT(*) "인원수", TO_CHAR(AVG(SALARY), 'L999,999,999') "평균급여"
+FROM EMPLOYEE
+GROUP BY MOD(SUBSTR(EMP_NO, 8, 1), 2);
+
+-- 사원명, 급여, 급여등급(고/중/초급 = SALARY 값이 500만원 초과/350만원 초과 500만원 이하/350만원 이하)
+SELECT EMP_NAME
+    , TO_CHAR(SALARY, 'L999,999,999') "급여"
+    , CASE WHEN SALARY > 5000000 THEN '고급'
+           WHEN 3500000 < SALARY AND SALARY <= 5000000 THEN '중급'
+           ELSE '초급'
+      END "급여 등급"
+FROM EMPLOYEE
+WHERE SALARY IS NOT NULL
+ORDER BY "급여" DESC;
+
+-- 부서코드 D5인 사원들의 총 급여 합
+SELECT SUM(SALARY)
+FROM EMPLOYEE
+WHERE DEPT_CODE = 'D5'; -- 15760000
+
+-- 남자 사원의 총 급여
+SELECT TO_CHAR(SUM(SALARY), 'L999,999,999')
+FROM EMPLOYEE
+WHERE SUBSTR(EMP_NO, 8, 1) = '1';
+
+-- -- 부서 배치가 완료된 사원 수
+/* COUNT 함수는 값이 NULL이 아닌 행의 갯수만 세서 반환하는 바, IS NOT NULL 조건 붙일 필요 없음
+SELECT COUNT(*)
+FROM EMPLOYEE
+WHERE DEPT_CODE IS NOT NULL;
+*/
+SELECT COUNT(DEPT_CODE)
+FROM EMPLOYEE; -- 21
+
+-- 부서배치가 완료된 남성 사원 수
+SELECT COUNT(DEPT_CODE)
+FROM EMPLOYEE
+WHERE SUBSTR(EMP_NO, 8, 1) = '1'; -- AND DEPT_CODE IS NULL;
+
+-- 직원명과 주민번호 조회; 단, 주민번호 9번째 자리~끝 '*' 문자로 채움/마스킹 e.g. 강은영 123456-2******
+SELECT EMP_NAME "직원명", RPAD(SUBSTR(EMP_NO, 1, 8), 14, '*') "주민번호" -- 함수 중첩된 경우 안쪽 괄호부터 처리
+FROM EMPLOYEE
+ORDER BY "직원명";
+
+SELECT EMP_NAME 직원명, REPLACE(EMP_NO, SUBSTR(EMP_NO, 9, 6), '******') 주민번호 FROM EMPLOYEE;
+
+-- 부서코드가 D5, D6인 직원들 중에서 2004년도에 입사한 직원의 수 조회
+SELECT COUNT(*)
+FROM EMPLOYEE
+WHERE DEPT_CODE IN ('D5', 'D6') AND EXTRACT(YEAR FROM HIRE_DATE) = 2004;
+
+SELECT COUNT(*)
+FROM EMPLOYEE
+WHERE DEPT_CODE IN ('D5', 'D6') AND SUBSTR(HIRE_DATE, 1, 2) = '04';
+
+SELECT COUNT(*)
+FROM EMPLOYEE
+WHERE DEPT_CODE IN ('D5', 'D6') AND TO_CHAR(HIRE_DATE, 'YYYY') = '2004';
+
+-- EMPLOYEE 테이블에서 사원의 주민번호를 확인하여 생년월일을 각각 조회
+-- 이름 | 생년 | 생월 | 생일
+-- 홍길 | 00년 | 00월 | 00일
+SELECT EMP_NAME "이름"
+    , CONCAT(SUBSTR(EMP_NO, 1, 2), '년') "생년" -- EMP_NO = 문자타입
+    , CONCAT(SUBSTR(EMP_NO, 3, 2), '월') "생월" -- 주민번호에서 잘라오면 어차피 0X월로 표기되니까 LPAD 필요 없음
+    , SUBSTR(EMP_NO, 5, 2) || '일' "생일"
+FROM EMPLOYEE;
+
+-- 추가 연습: EMPLOYEE 테이블에서 사원의 입사일을 확인하여 입사년도/월/일을 각각 조회
+SELECT EMP_NAME "이름"
+    , CONCAT(SUBSTR(HIRE_DATE, 1, 2), '년') "입사년도"
+    , CONCAT(SUBSTR(HIRE_DATE, 4, 2), '월') "입사월"
+    , CONCAT(SUBSTR(HIRE_DATE, 7, 2), '일') "입사일"
+FROM EMPLOYEE;
+
+-- 부서코드가 D5이면 총무부, D6이면 기획부, D9이면 영업부로 처리(case 사용);
+-- 단, 부서코드가 D5, D6, D9인 직원의 사원명, 부서코드, 부서명만 조회함 + 부서코드 기준 오름차순 정렬
+SELECT EMP_NAME "사원명" -- 실행순서3: SELECT절 위->아래로
+    , DEPT_CODE "부서코드"
+    , CASE WHEN DEPT_CODE = 'D5' THEN '총무부'
+           WHEN DEPT_CODE = 'D6' THEN '기획부'
+           ELSE '영업부' -- WHEN DEPT_CODE = 'D9' THEN '영업부' 명시적으로 써도 됨
+      END "부서명"
+FROM EMPLOYEE -- 실행순서1
+WHERE DEPT_CODE IN ('D5', 'D6', 'D9') -- 실행순서2
+ORDER BY 2; -- "부서코드" 컬럼을 의미; Oracle에서는 순서 셀 때 1부터 시작; 실행순서4
+
+SELECT EMP_NAME "사원명" -- 실행순서3: SELECT절 위->아래로
+    , DEPT_CODE "부서코드"
+    , DECODE(DEPT_CODE, 'D5', '총무부', 'D6', '기획부', 'D9', '영업부') "부서명"
+FROM EMPLOYEE -- 실행순서1
+WHERE DEPT_CODE IN ('D5', 'D6', 'D9') -- 실행순서2
+ORDER BY 2;
+
+-- 2021.11.14(일) JOIN, GROUP BY
+-- NATURAL(자연) JOIN: 운 좋게도 2개의 테이블에 일치하는 컬럼/컬럼명이 똑같은 게 유일하게 1개 존재 시 사용 가능 -> 알아서 매칭
+SELECT EMP_ID, EMP_NAME, JOB_CODE, JOB_NAME
+FROM EMPLOYEE
+NATURAL JOIN JOB;
+
+-- 사원명, 급여, 급여등급(SAL_LEVEL) 함께 조회
+-- ORACLE 전용 구문
+SELECT EMP_NAME, SALARY, E.SAL_LEVEL
+FROM EMPLOYEE E, SAL_GRADE S -- FROM절에 JOIN해줄 테이블 모두 나열
+-- WHERE MIN_SAL <= SALARY AND SALARY <= MAX_SAL;
+WHERE SALARY BETWEEN MIN_SAL AND MAX_SAL;
+-- ANSI 구문(ON구문만 가능)
+SELECT EMP_NAME, SALARY, E.SAL_LEVEL
+FROM EMPLOYEE E
+JOIN SAL_GRADE ON (SALARY BETWEEN MIN_SAL AND MAX_SAL);
+
+-- 사원 사번, 사원명, 사원 부서코드, 사원 급여 + 사수 사번, 사수명, 사수 부서코드, 사수 급여 조회
+-- ORACLE 전용 구문
+SELECT E.EMP_ID "사원 사번", E.EMP_NAME "사원명", E.DEPT_CODE "사원 부서코드", E.SALARY "사원 급여",
+    M.EMP_ID "사수 사번", M.EMP_NAME "사수명", M.DEPT_CODE "사수 부서코드", M.SALARY "사수 급여"
+FROM EMPLOYEE E, EMPLOYEE M
+-- WHERE E.MANAGER_ID = M.EMP_ID; -- 나의 사수의 MANAGER_ID와 사수의 EMP_ID를 연결 -> 동등JOIN -> 사수가 있는 사람만 나옴
+WHERE E.MANAGER_ID = M.EMP_ID(+); -- 사수가 없는 사원도 조회되도록 LEFT 포괄/OUTER JOIN
+
+-- ANSI 구문
+SELECT E.EMP_ID "사원 사번", E.EMP_NAME "사원명", E.DEPT_CODE "사원 부서코드", E.SALARY "사원 급여",
+    M.EMP_ID "사수 사번", M.EMP_NAME "사수명", M.DEPT_CODE "사수 부서코드", M.SALARY "사수 급여"
+FROM EMPLOYEE E
+LEFT JOIN EMPLOYEE M ON (E.MANAGER_ID = M.EMP_ID);
+
+/* 실행 순서
+ 5번: SELECT *(전체)/조회하려는 컬럼/산술연산/함수식 (AS) "별명"
+ 1번: FROM 조회하고자 하는 테이블
+     (JOIN)
+ 2번: WHERE 조건식; 조건이 많은 경우 앞에서부터, 단 연산자 우선순위에 따라(e.g. AND -> OR).. 중첩함수는 안쪽 괄호부터..
+ 3번: GROUP BY 그룹 기준에 해당하는 컬럼명/함수식; GROUP을 지어주고 조건을 주어야 하는데 실행 순서에 따라 WHERE절이 GROUP BY절보다 앞에 오는 바 WHERE절을 사용할 수는 없으므로, GROUP을 지어주는 경우 WHERE절 대신 HAVING절 사용함
+ 4번: HAVING 그룹 함수식에 대한 조건식 -> 조회하고자 하는 컬럼(조건) 걸러냄
+ 6번: ORDER BY 정렬 기준에 해당하는 컬럼명/별칭/컬럼순번 ASC/DESC NULLS FIRST/LAST;
+*/
+
+-- 각 부서별 보너스를 받는 사원이 없는 부서만을 조회
+-- 방법1)
+SELECT DEPT_CODE
+FROM EMPLOYEE
+GROUP BY DEPT_CODE
+HAVING COUNT(BONUS) = 0; -- 보너스 받는 사람이 없음
+-- NULL = 값이 없음 -> COUNT() 연산 시 포함 안 됨
+-- WHERE BONUS IS NULL -- 갯수 반환(X) BONUS의 값이 NULL인 행을 찾는 조건(O)
+-- SUM(BONUS) = 연산 결과 -> NULL이 나올 수 없음
+
+-- 방법2)
+SELECT DEPT_CODE
+FROM EMPLOYEE
+GROUP BY DEPT_CODE
+HAVING SUM(NVL(BONUS, 0)) = 0; -- BONUS컬럼의 NULL값을 0으로 처리한 뒤, '부서별 BONUS의 합이 0인 부서 = 보너스를 받는 사원이 없는 부서'
