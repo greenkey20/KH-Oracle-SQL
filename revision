@@ -225,3 +225,141 @@ SELECT DEPT_CODE
 FROM EMPLOYEE
 GROUP BY DEPT_CODE
 HAVING SUM(NVL(BONUS, 0)) = 0; -- BONUS컬럼의 NULL값을 0으로 처리한 뒤, '부서별 BONUS의 합이 0인 부서 = 보너스를 받는 사원이 없는 부서'
+
+/* 집합(SET) 연산자(OPERATORS): 여러 개의 QUERY문(SELECT, INSERT, UPDATE, DELETE 등 질의를 던지는 것)을 가지고 하나의 QUERY문으로 만드는 연산자
+ 1. UNION(합집합): 두 쿼리문을 수행한 결과값을 더한 후, 중복되는 부분은 한 번 뺀 것 -> 중복된 값은 하나만 보여줌; OR
+ 2. UNION ALL(합집합 결과에 교집합이 더해짐): 두 쿼리문을 수행한 결과값을 무조건 더함 + 합집합에서 중복 제거를 하지 않음 -> 중복을 모두 보여줌
+ 3. INTERSECT(교집합): 두 쿼리문을 수행한 결과값의 중복된 결과값 부분; AND
+ 4. MINUS(차집합): '선행 쿼리문 결과값 -(빼기) 후행 쿼리문 결과값'의 결과; 조건1 AND '조건2의 부정'
+*/
+
+-- 2021.11.15(월) SUBQUERY
+/* 서브쿼리 구분: 서브쿼리를 수행한 결과값이 몇 행 몇 열이냐에 따라 구분 -> 서브쿼리를 수행한 결과가 몇 행 몇 열이냐에 따라 사용 가능한 연산자도 달라짐
+ 1. 단일행(+단일열) 서브쿼리: 서브쿼리를 수행한 결과값이 오로지 1개일 때
+ 2. 다중행(+단일열) 서브쿼리: 서브쿼리를 수행한 결과값이 여러 행일 때
+ 3. (단일행+)다중열 서브쿼리: 서브쿼리를 수행한 결과값이 여러 열일 때
+ 4. 다중행 다중열 서브쿼리: 서브쿼리를 수행한 결과값이 여러 행 여러 열일 때
+*/
+
+-- 부서별 급여 합이 가장 큰 부서 하나의 부서코드, 부서명, 급여 합 조회
+SELECT DEPT_CODE, DEPT_TITLE, SUM(SALARY) -- 그룹 2개 지어줘야 하는데(DEPT_CODE, DEPT_TITLE) 1개 밖에 안 지어서(DEPT_CODE) "ORA-00979: not a GROUP BY expression" 오류
+FROM EMPLOYEE
+LEFT JOIN DEPARTMENT ON (DEPT_CODE = DEPT_ID)
+GROUP BY DEPT_CODE, DEPT_TITLE
+HAVING SUM(SALARY) = (SELECT MAX(SUM(SALARY)) -- HAVING절에도 서브쿼리 사용 가능
+                      FROM EMPLOYEE
+                      GROUP BY DEPT_CODE); -- 서브쿼리의 결과값 = 단일행; 17,700,000
+                      
+SELECT DEPT_CODE, DEPT_TITLE, SUM(SALARY)
+FROM EMPLOYEE, DEPARTMENT
+WHERE DEPT_CODE = DEPT_ID(+)
+GROUP BY DEPT_CODE, DEPT_TITLE
+HAVING SUM(SALARY) = (SELECT MAX(SUM(SALARY)) FROM EMPLOYEE GROUP BY DEPT_CODE); -- 서브쿼리의 결과값 = 17,700,000 = 단일행
+
+/* 2. 다중행 (단일열) 서브쿼리(MULTI ROW SUBQUERY): 서브쿼리의 조회 결과값이 여러 행일 때
+ -> 사용 가능한 연산자
+    IN: 여러 개의 결과값 중에서 1개라도 일치하는 값이 있으면
+    NOT IN: 아예 없으면
+    
+    > ANY: 여러 개의 결과값 중에서 '하나라도' 클 경우 = 여러 개의 결과값의 최소값보다 큰 경우
+    < ANY: 여러 개의 결과값 중에서 '하나라도' 작을 경우 = 여러 개의 결과값의 최대값보다 작은 경우
+    ANY는 OR와 비슷함
+    
+    > ALL: 여러 개의 결과값 모두보다 큰 경우 = 여러 개의 결과값의 최대값보다 큰 경우
+    < ALL: 여러 개의 결과값 모두보다 작은 경우 = 여러 개의 결과값의 최소값보다 작은 경우
+    ALL은 AND와 비슷함
+*/
+-- 대리 직급임에도 불구하고 과장 직급의 급여보다 많이 받은 직원들의 사번, 이름, 직급명, 급여
+-- 방법1)
+SELECT EMP_ID, EMP_NAME, JOB_NAME, SALARY -- 메인쿼리
+FROM EMPLOYEE E, JOB J
+WHERE E.JOB_CODE = J.JOB_CODE(+)
+ AND SALARY > ANY(SELECT SALARY
+                  FROM EMPLOYEE E, JOB J
+                  WHERE E.JOB_CODE = J.JOB_CODE(+)
+                  AND JOB_NAME = '과장') -- 이 서브쿼리의 결과값 = 다중행 단일열 -> 다중행 서브쿼리
+ AND JOB_NAME = '대리'; -- 직급이 대리인 사람들 중에서
+-- 방법2)
+SELECT EMP_NO, EMP_NAME, JOB_NAME, SALARY
+FROM EMPLOYEE
+LEFT JOIN JOB USING (JOB_CODE)
+WHERE SALARY > ANY(SELECT SALARY FROM EMPLOYEE LEFT JOIN JOB USING (JOB_CODE) WHERE JOB_NAME = '과장') -- 서브쿼리의 결과값 = 다중행 단일열
+ AND JOB_NAME = '대리';
+-- 나의 생각: ANY == 과장들의 급여 중 최소값을 구하는 쿼리문을 구해두었다가 그것과 대리들의 SALARY 비교
+SELECT EMP_NO, EMP_NAME, JOB_NAME, SALARY
+FROM EMPLOYEE
+LEFT JOIN JOB USING (JOB_CODE)
+WHERE SALARY > (SELECT MIN(SALARY) FROM EMPLOYEE LEFT JOIN JOB USING (JOB_CODE) WHERE JOB_NAME = '과장') -- 서브쿼리의 결과값 = 2,200,000 = 단일행 단일열
+ AND JOB_NAME = '대리';
+
+/* 3. (단일행) 다중 열 서브쿼리: 조회 결과 값은 1개 행이지만, 나열된 컬럼 수가 여러 개일 때
+ -> 사용 가능한 연산자
+    (컬럼1, 컬럼2, ..) = (컬럼1 값, 컬럼2 값, ..)
+    (컬럼1, 컬럼2, ..) IN (컬럼1 값, 컬럼2 값, ..)
+*/
+-- 박나라 사원과 같은 직급코드 및 같은 사수사번을 가진 사원들의 사번, 이름, 직급코드, 사수사번, 부서명 조회
+SELECT EMP_ID, EMP_NAME, JOB_CODE, MANAGER_ID, DEPT_TITLE
+FROM EMPLOYEE E, DEPARTMENT D
+-- 단일행 다중열 result set이 나와야 함 = 박나라 사원의 JOB_CODE, MANAGER_ID
+WHERE (JOB_CODE, MANAGER_ID) = (SELECT JOB_CODE, MANAGER_ID
+                                FROM EMPLOYEE
+                                WHERE EMP_NAME = '박나라') -- 서브쿼리의 결과값 = 단일행 다중열; J7, 207
+ AND E.DEPT_CODE = D.DEPT_ID(+);
+
+/* 4. 다중행 다중열 서브쿼리: 서브쿼리 조회 결과값이 여러 행+여러 컬럼일 경우
+ e.g. 위 예제의 결과물도 서브쿼리로 쓰일 수 있음
+ -> 사용 가능한 연산자
+    (컬럼1, 컬럼2, ..) IN (컬럼1 값, 컬럼2 값, ..)
+*/
+-- 각 직급별 최소 급여를 받는 사원들의 사번, 이름, 직급코드, 급여 조회
+SELECT EMP_ID, EMP_NAME, JOB_CODE, SALARY
+FROM EMPLOYEE
+WHERE (JOB_CODE, SALARY) IN (SELECT JOB_CODE, MIN(SALARY)
+                             FROM EMPLOYEE
+                             GROUP BY JOB_CODE); -- 서브쿼리 결과값 = 다중행 다중열
+
+-- 각 부서별(-> 여러 개의 부서 -> 여러 개의 행 결과값이 나올 것임) 최고 급여를 받는 사원들의 이름, 직급코드, 급여(, 부서명) 조회
+-- 2021.11.15(월) 복습하며 재작성해봄
+SELECT EMP_NAME, JOB_CODE, SALARY, DEPT_CODE
+FROM EMPLOYEE
+WHERE (DEPT_CODE, SALARY) IN (SELECT DEPT_CODE, MAX(SALARY) FROM EMPLOYEE GROUP BY DEPT_CODE);
+
+-- 각 부서별 최고 급여를 받는 사원들의 사번, 이름, 부서코드, 급여 조회 + 급여로 오름차순 정렬
+SELECT EMP_ID, EMP_NAME, DEPT_CODE, SALARY -- SELECT절에는 NVL(DEPT_CODE, '없음') 안 써도 조건에서 NULL '없음'으로 받아온 것 조회해줌
+FROM EMPLOYEE
+-- DEPT_CODE가 NULL인 경우도 비교하고 받아오기 위해서 NVL()함수 사용
+WHERE (NVL(DEPT_CODE, '없음'), SALARY) IN (SELECT NVL(DEPT_CODE, '없음'), MAX(SALARY) -- 그냥 SALARY는 GROUP을 만들어주지 않았기 때문에 여기에 쓸 수는 없음 vs MAX(SALARY)
+                                          FROM EMPLOYEE
+                                          GROUP BY DEPT_CODE) -- 그룹 만들 때 NULL 그룹 만들어줌; 서브쿼리 결과값 = 다중행 단일열
+ORDER BY SALARY;
+
+-- INLINE-VIEW를 주로 사용하는 예: TOP-N분석(데이터베이스 상에 존재하는 자료 중 최상위 데이터 몇 개/최상위 몇 개 자료를 조회(+분석))
+-- e.g. 쇼핑몰 > 실시간 BEST(상품이 담기는 테이블에서 가장 많이 팔리는 것 추출/조회), BEST REVIEWS
+--      PAGING기법(?) -> (게시글 번호, 게시 시간 등에 따라 정렬해서) 웹사이트 게시판 1페이지에 몇 개의 글이 들어갈 수 있는지
+-- 전 직원 중 급여가 가장 높은 5명 조회
+-- cf. ROWNUM: ORACLE에서 제공해주는 컬럼; 조회된 순서대로 1부터 ... 순번을 부여해줌
+SELECT ROWNUM, EMP_NAME, SALARY -- 실행순서3
+FROM (SELECT *
+      FROM EMPLOYEE
+      ORDER BY SALARY DESC NULLS LAST) -- 실행순서1 -> 급여 순서대로 정렬해서 테이블을 가져오자
+WHERE ROWNUM <= 5 -- 실행순서2 -> FROM절의 조회 결과 상위 5개에 번호매김
+ORDER BY SALARY DESC; -- 실행순서4
+-- 사원들의 급여가 높은 순서 5위까지만 조회
+SELECT *
+FROM (SELECT EMP_NAME, SALARY, RANK() OVER(ORDER BY SALARY DESC NULLS LAST) "급여 순위"
+      FROM EMPLOYEE)
+WHERE "급여 순위" <= 5;
+
+-- 각 부서별 평균급여가 높은 3개의 부서의 부서코드, 평균 급여 조회
+SELECT ROWNUM, DEPT_CODE, "평균 급여"
+FROM (SELECT DEPT_CODE, ROUND(AVG(SALARY)) "평균 급여"
+      FROM EMPLOYEE
+      GROUP BY DEPT_CODE
+      ORDER BY AVG(SALARY) DESC)
+WHERE ROWNUM <= 3;
+-- 각 부서별 평균급여가 높은 3개의 부서의 부서코드, 평균 급여 조회
+SELECT *
+FROM (SELECT DEPT_CODE, ROUND(AVG(SALARY)), RANK() OVER(ORDER BY AVG(SALARY) DESC) "급여 순위"
+      FROM EMPLOYEE
+      GROUP BY DEPT_CODE)
+WHERE "급여 순위" <= 3;
