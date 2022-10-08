@@ -10,13 +10,22 @@
 > 2022.10.6(목)
 
 3. 종이/펜 + ERD cloud로 데이터베이스 밑그림 그림
+![20221006 SEB_BE_41 강은영 인스타그램 스키마_erd cloud](https://user-images.githubusercontent.com/87472526/194678639-182d265e-023b-47a5-9b3f-5194af2500d8.png)
 
 > 2022.10.7(금)
 
 4. MySQL Workbench 설치 및 Connection
+
 5. 설계 수정 및 기능 추가해서 ERD 그리며 데이터베이스 개념/논리적 모델링 수행
 
-### MySQL Workbench Forward Engineering 결과
+  - 추가 기능
+    - 대댓글 달기
+    - 댓글 및 대댓글 좋아요
+    - 사용자, 포스트, 댓글, 대댓글 신고
+
+![20221007 SEB_BE_41 강은영 인스타그램 스키마_workbench v2](https://user-images.githubusercontent.com/87472526/194678738-72ca0099-adf6-4fe5-ac04-4f1197a140a3.png)
+
+### MySQL Workbench Forward Engineering 결과 SQL 스크립트
 ```sql
 -- MySQL Workbench Forward Engineering
 
